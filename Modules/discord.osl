@@ -56,7 +56,7 @@ def "sent_by"
 endef
 
 def "send_message" "content, channel"
-  network "getasync" "https://origin.milosantos.com/discord/sendmessage.php?token=" ++ token ++ "&channelid=" ++ channel ++ "&content=" ++ content.str.to("url")
+  network "getasync" "https://origin.milosantos.com/discord/sendmessage.php?token=" ++ token ++ "&channelid=" ++ channel ++ "&content=" ++ content.toStr().to("url")
 endef
 
 def "dm_user" "content, user_id"
@@ -90,7 +90,7 @@ def "discord_getmessages"
       )
       each "i" "channel" channels (
         position = channel."position"
-        out_channels.[position] = channel.JsonClean()
+        out_channels[position] = channel.JsonClean()
       )
       channels = out_channels
       name = guild."name"
@@ -103,7 +103,7 @@ def "discord_getmessages"
     )
     if cmd == "MESSAGE_CREATE" (
       channel = msg."channel"
-      messages.[channel] =  messages.[channel].append(msg)
+      messages[channel] =  messages[channel].append(msg)
     )
   )
 endef

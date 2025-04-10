@@ -8,7 +8,7 @@ permission "request" "terminal"
 permission "request" "save admin"
 permission "request" "account"
 
-stats = "https://apps.mistium.com/stats".get()
+stats = "https://apps.mistium.com/stats".get().JsonParse()
 
 window "dimensions" 1000 600
 save "appstore@system" "set_directory"
@@ -16,17 +16,28 @@ if "installed.json".saveExists().not (
   save "installed.json" "set" {}
 )
 
-def "tab" "name"
-  square w 40 15 : c#window_colour
+def "tab" "name" (
+  square w 40 15 0 0 : c#window_colour
   if mouse_touching or name == page (
-    square w 40 15 : c#seco
-    square w 40 10 : c#window_colour
+    square w 40 15
   )
   if clicked "page = name"
   change_y -60
-endef
+)
 
 icons = {}
+apps = []
+
+def "loadicn" "cur" (
+  if icons.contains(cur).not (
+    if cur != "" (
+      local data = ("https://raw.githubusercontent.com/RoturTW/apps/main/all/" ++ encodeURIComponent(cur) ++ "/icon.icn").getAsync()
+      if data != "loading" (
+        icons[cur] = data
+      )
+    )
+  )
+)
 
 mainloop:
 load_theme
@@ -40,7 +51,12 @@ square ww 40 10 1 : c#prim
 
 loc 2 999 sidebar_width / 2 0
 square sidebar_width wh 20 1
-glass:frame window.left window.top window.right window.bottom; frame "clear"
+glass:frame window.left window.top window.right window.bottom
+frame "clear"
+frame window.left window.top window.left + sidebar_width + 10 window.bottom (
+  pen "opacity" 50
+  icon "dot 0 0" frame.width
+)
 
 loc 2 2 sidebar_width / 2 + 3 -35
 
@@ -48,7 +64,7 @@ w = sidebar_width - 25
 tab "APPSTORE// Profile"
 change_y -15
 tab "APPSTORE// Store"
-tab "APPSTORE// Search"
+tab "APPSTORE// List"
 tab "APPSTORE// Marketplace"
 tab "APPSTORE// Library"
 
@@ -66,8 +82,8 @@ text "Store" 9 : chx#22
 
 y -= 60
 loc 2 2 x y
-icon "search" 1
-text "Search" 9 : chx#20
+icon "list" 1
+text "List" 9 : chx#20
 
 y -= 60
 loc 2 2 x y
@@ -96,7 +112,7 @@ text "Upload Your Apps" 9 : chx#20
 loc 2 2 sidebar_width + 20 -20
 text page_name 9 : c#txtc
 
-c prim
+c seco
 frame ww / -2 + sidebar_width + 10 wh / 2 - 50 ww / 2 wh / -2 len
 
 if page == "APPSTORE// Loading" (
@@ -104,15 +120,77 @@ if page == "APPSTORE// Loading" (
   direction timer * 360
   icon "cutcircle 0 0 10 0 90" 5 : c#txtc
   direction 90
-  data = "https://raw.githubusercontent.com/RoturTW/apps/main/apps.json".getAsync()
-  if data != "loading" (
-    apps = data
+  if apps.len == 0 (
+    data = "https://raw.githubusercontent.com/RoturTW/apps/main/apps.json".getAsync()
+    if data != "loading" (
+      apps = data
+    )
+  )
+  data = "https://raw.githubusercontent.com/RoturTW/apps/refs/heads/main/home.json".getAsync()
+  if data != "loading" and apps.len > 0 (
+    home_json = data
     page = "APPSTORE// Store"
   )
 )
 
 if page == "APPSTORE// store" (
-  page_name = "Store"
+  c window_colour
+  page_name = "Home"
+  w = frame.width - 25
+  
+  h = w * 0.56
+  goto 0 frame.top - (h/2) - 51.5 + scroll_y
+  local name = home_json.featured.name
+  square w h + 80 15 : chy#2.5
+  change_y -2.5
+  if onclick (
+    page = home_json.featured.name
+    app_tab = "Description"
+    installed = 0
+  )
+  change_y 40
+  image home_json.featured.image w h
+  local pos = [x_position, y_position]
+  local views = stats.views[name] + "Views"
+  v_w = views.len * 10 + 15
+  change w / -2 + (v_w / 2) + 5 h / 2 - 23
+  square v_w - 15 20 15
+  change_x v_w / -2 + 7.5
+  text views 10 : c#txtc
+  goto pos[1] pos[2]
+  
+  change w / -2 + 35 h / -2 - 45
+  loadicn name
+  icon icons[name] 2.5
+  change 40 15
+  text name ++ "\n" 15 : c#txtc
+  text home_json.featured.desc 10
+  author = "Made By " ++ home_json.featured.auth
+  set_x frame.right - (author.len * 10) - 20 : chy#35
+  text author 10
+  
+  stretch [100,100]
+  change_y -83
+  each app home_json.tiles (
+    set_x 0
+    square w 30 15 : c#window_colour
+    if onclick (
+      page = app.title
+      app_tab = "Description"
+      installed = 0
+    )
+    set_x frame.left + 27
+    loadicn app.title
+    icon icons[app.title] 1.5
+    text app.title 10 : c#txtc chx#25
+    change_y -50
+  )
+  
+  len = h + 163 + (home_json.tiles.len * 30)
+)
+
+if page == "APPSTORE// List" (
+  page_name = "List"
   app_h = frame_width / 2
   count = (scroll_y / 70).round() - 1
   w = frame.width - 25
@@ -132,20 +210,13 @@ if page == "APPSTORE// store" (
         installed = 0
       )
     )
+    loadicn cur
     loc 2 2 35 y
-    if icons.contains(cur).not (
-       if cur != "" (
-         data = ("https://raw.githubusercontent.com/RoturTW/apps/main/all/" ++ encodeURIComponent(cur) ++ "/icon.icn").getAsync()
-         if data != "loading" (
-           icons[cur] = data
-         )
-       )
-    )
     icon icons[cur].replace(newline," ") 1.5
     loc 2 2 65 y
     text cur.toTitle() 10 : c#txtc
   )
-  len = apps.len - 0.5 * 70
+  len = apps.len - 0.25 * 70
 )
 
 if page == "APPSTORE// profile" (
@@ -192,9 +263,6 @@ if page == "APPSTORE// library" (
   len = library_apps.len - 0.5 * 70
 )
 
-if page == "APPSTORE// search" (
-  page_name = "Search"
-)
 if page == "APPSTORE// marketplace" (
   page_name = "Marketplace"
   items = itemAll()
@@ -277,23 +345,31 @@ if app_page (
   ) else (
     cur = current_app.title.toLower()
     if installed == 0 and cur != "" (
-      save "installed.json" "get"
       app_path = user_folder ++ "/applications/" ++ cur ++ ".osl"
       file "exists" app_path
+      save_data = "installed.json".saveGet()
       installed = save_data.contains(cur) and exists
-      install_version = save_data[cur].int
+      install_version = save_data[cur] ?? 0
     )
     y = -50 + scroll_y
-    desc = current_app.description.str
+    desc = current_app.description.toStr()
     w = frame_width
     loc 999 2 0 y
     square w - 20 130 10 1 : c#window_colour
     loc 2 2 60 y - 10
-    icon icons[cur].str 3
+    icon icons[cur].toStr() 3
     loc 2 2 140 y
     text cur.toTitle() + "(v" ++ current_app.version ++ ")" 10 : c#txtc
     loc 2 2 140 y - 30
-    text "By" + current_app.author 9
+    text "By" + current_app.author 9 : tooltip#"Donate Rotur Credits"
+    if onclick (
+      window.create("wallet", {
+        passed_data: {
+          mode: "transfer",
+          user: current_app.author.split(" ").first().replace(",","")
+        }
+      })
+    )
     loc 2 2 30 y - 95
     icon "eye" 0.7
     text stats.views[cur] 10 : chx#20
@@ -314,9 +390,9 @@ if app_page (
         change_y -118
       )
       loc 2 2 20 y - 130
-      desc = current_app.description.str
+      desc = current_app.description.toStr()
       desc.wrapText(text_width - 400 / 9)
-      len = desc.count(newline) * 21 + 170
+      len = desc.count("\n") * 21 + 170
       sc_len = screenshots.len * 226 + 170
       if len < sc_len (
         len = sc_len
@@ -332,8 +408,8 @@ if app_page (
         file "start"
         file "close"
       ) else (
-        terminal "app install" + cur.str
-        save "installed.json" "get"
+        terminal "app install" + cur.toStr()
+        save_data = "installed.json".saveGet() ?? {}
         install_version = current_app.version
         save_data[cur] = install_version
         save "installed.json" "set" save_data

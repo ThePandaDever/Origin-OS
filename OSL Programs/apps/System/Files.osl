@@ -5,6 +5,8 @@ permission "request" "file admin"
 
 file "use_type" "folder"
 
+save "files@system" "set_directory"
+
 window "dimensions" 1000 600
 window "show"
 
@@ -24,7 +26,7 @@ sorting_dir = "descending"
 
 dta = ""
 can = true
-def "navigate" "path"
+def "navigate" "path" (
   tab_data = {}
   tab_data.title = path.split("/").last()
   tab_data.url = path
@@ -35,27 +37,24 @@ def "navigate" "path"
   tabs[current_tab].position = pos
   tabs[current_tab].history = tabs[current_tab].history.trim(1,pos - 1).append(tab_data)
   input_path = path
-endef
+)
 
-def "sort_files(this.files)"
+def "sort_files(files)" (
   new_files = []
-  each i file this.files (
+  each i file files (
     obj = {}
     
     file "open" file "onlyaccess"
     obj.uuid = file
     
-    file "get" 1
-    this.filetype = data
-    file "get" 2
-    obj.name = data ++ this.filetype
+    local filetype = fileGet(1)
+    obj.name = fileGet(2) ++ filetype
+  
+    obj.modified = timestamp - fileGet(10)
     
-    file "get" 10
-    obj.modified = timestamp - data
-    
-    this.filetype = file_types[this.filetype][2]
-    obj.filetype = this.filetype == "" ? "Document" this.filetype
-    if this.filetype == "Folder" (
+    local filetype = file_types[filetype][2]
+    obj.filetype = filetype == "" ? "Document" filetype
+    if filetype == "Folder" (
       file "get" 4
       obj.size = data.len.padStart(20,"0")
     ) else (
@@ -64,15 +63,15 @@ def "sort_files(this.files)"
     )
     new_files.append(obj)
   )
-  return new_files.sortBy(sorting_mode.toLower(),sorting_direction).getKeys("uuid")
-endef
+  return new_files.sortBy(sorting_mode.toLower(), sorting_direction).getKeys("uuid")
+)
 
-def "refresh"
+def "refresh" (
   cur = tabs[current_tab]
   input_path = cur.history[cur.position].url
-endef
+)
 
-def "setup_tabs"
+def "setup_tabs" (
   cur_tab = {}
   cur_tab.history = []
   cur_tab.position = 0
@@ -80,7 +79,7 @@ def "setup_tabs"
   
   tabs = [].append(cur_tab)
   current_tab = 1
-endef
+)
 
 setup_tabs
 
@@ -92,13 +91,13 @@ if passed_data != "" (
   navigate user_folder
 )
 
-def "folder" "txt"
-  this.con = hidden.contains(txt)
+def "folder" "txt" (
+  local con = hidden.contains(txt)
   loc 2 2 125 y
   square 225 20 15 0 1
   if mouse_touching (
     if onclick (
-      if this.con (
+      if con (
         hidden.delete(txt)
       ) else (
         hidden.append(txt)
@@ -109,36 +108,83 @@ def "folder" "txt"
   )
   change_x 100
   c txtc
-  icon this.con ? "right" "down" 0.6
+  icon con ? "right" "down" 0.6
   change_x -210
   text txt.str 9
   y -= 35
-endef
+)
 
-def "file_folder" "txt,folder"
-  this.cur = icons[txt]
-  path_input = this.cur.path
-  this.icn = this.cur.icn
-  if hidden.contains(folder).not (
+def "file_folder" "txt, folder" (
+  file "open" txt ++ ".folder" "onlyaccess"
+  
+  if hidden.contains(folder).not() (
     loc 2 2 125 y
     square 225 20 10 0 1
     if mouse_touching (
       if onclick (
-        navigate path_input
+        navigate fileGet(3) ++ "/" ++ fileGet(2)
       )
       square 225 20 15 : c#seco
       square 225 20 10 : c#prim
+      local idx = favorites.index(txt)
+      
+      local down = {"Down": def(path) -> (
+        local idx = favorites.index(path)
+        favorites.swap(idx, idx + 1)
+        saveFavorites()
+      )}
+      local up = {"Up": def(path) -> (
+        local idx = favorites.index(path)
+        favorites.swap(idx, idx - 1)
+        saveFavorites()
+      )}
+      
+      local move = ["Move Pin"]
+      if idx > 1 (
+        local move = move.append(up)
+      )
+      if idx < favorites.len (
+        local move = move.append(down)
+      )
+      
+      rightclick [
+        "> " ++ fileGet(14),
+        "-",
+        {"Open In New Window": def(val) -> (
+          if val.startsWith("user/") (
+            local val = user_folder ++ val.trim(5, -1) ++ ".folder"
+          )
+          window.create(window.file.uuid, {passed_data: val})
+        )},
+        "-",
+        move,
+        {"Unpin": def(path) -> (
+          favorites.delete(path)
+          saveFavorites()
+        )}
+      ] txt
+      
+      if file_dropped != 0 (
+        file "open" file_dropped "onlyaccess"
+        if fileGet(1) == ".folder" (
+          favorites.insert(idx, fileGet(3) ++ "/" ++ fileGet(2))
+          saveFavorites()
+        )
+        
+        file_dropped = 0
+      )
     )
+    
     change_x -95
     stretch [100,100]
-    icon this.icn 0.9
+    file "render" 1
     c txtc : chx#30
-    text txt 8
+    text fileGet(2) 8
     y -= 35
   )
-endef
+)
 
-def "render_tabs"
+def "render_tabs" (
   offset = 55
   total_width = window.width - 190
   positions = tabs.getKeys("position")
@@ -194,11 +240,11 @@ def "render_tabs"
     current_tab = tabs.len
     refresh
   )
-endef
+)
 
-def "sorting_option" "this.sort_name"
+def "sorting_option" "this.sort_name" (
   text this.sort_name 8
-  if sorting_mode == this.sort_name (
+  if sorting_mode == sort_name (
     if onclick (
       if sorting_direction == "ascending" (
         sorting_direction = "descending"
@@ -209,28 +255,28 @@ def "sorting_option" "this.sort_name"
     icon sorting_direction == "ascending" ? "up" "down" 0.4 : chx#20
   ) else (
     if onclick (
-      sorting_mode = this.sort_name
+      sorting_mode = sort_name
       sorting_direction = "ascending"
     )
   )
-endef
+)
 
-def "render_files"
+def "render_files" (
   if window.width > 700 (
     loc 2 2 260 -160
   ) else (
     loc 2 2 5 -160
   )
-  this.temp_x = x_position
-  this.temp_y = y_position
+  local temp_x = x_position
+  local temp_y = y_position
   loc -2 -2 0 32
   if window.width > 1000 and selected_files.len != 0 (
     change_x -292
   )
-  this.temp_x2 = x_position
-  this.temp_y2 = y_position
+  local temp_x2 = x_position
+  local temp_y2 = y_position
   
-  frame this.temp_x this.temp_y this.temp_x2 this.temp_y2 files.len * 45 : c#prim
+  frame temp_x temp_y temp_x2 temp_y2 files.len * 45 : c#prim
   current_folder_uuid = ""
   window.drop_location = null
   if input_path == "origin" (
@@ -239,16 +285,13 @@ def "render_files"
     file "exists" input_path ++ ".folder"
     if exists (
       file "open" input_path ++ ".folder" "onlyaccess"
-      file "get" 14
-      current_folder_uuid = data
-      file "get" 4
-      data.JsonParse()
+      current_folder_uuid = fileGet(14)
+      data = fileGet(4).JsonParse()
 
       window.drop_location = input_path
       if data != current_folder_update or sorting_mode + sorting_direction != temp_sorting_mode (
         current_folder_update = data
         files = sort_files(data)
-
         
         temp_sorting_mode = sorting_mode + sorting_direction
       )
@@ -306,10 +349,10 @@ def "render_files"
           temp = files.index(selected_files.last())
           if temp < count (
             temp ++
-            selected_files = selected_files + files.trim(temp,count)
+            selected_files += files.trim(temp,count)
           ) else (
             temp --
-            selected_files = selected_files ++ files.trim(count,temp)
+            selected_files ++= files.trim(count,temp)
           )
         // select a single file
           drag_id = 0
@@ -320,7 +363,7 @@ def "render_files"
           can = false
         )
       ) else if drag_id == current_file and selected_files.len == 1 (
-        if mouse_touching.not (
+        if mouse_touching.not() (
           drag_id = 0
           if mouse_down (
             file "move" current_file
@@ -358,7 +401,7 @@ def "render_files"
         loc -2 2 -100 draw_y
         text fileGet(4).len + "Items" 8
       ) else (
-        data2 += data
+        data2 ++= data
         text data2.trimText(max_chars) 8
         
         if frame.width > 600 (
@@ -404,43 +447,37 @@ def "render_files"
     set_x this.temp_x2 - 410
     sorting_option "Modified"
   )
-endef
+)
+def saveFavorites() (
+  save "favorites.json" "set" favorites
+)
 
-def "load_favorite" "this.name"
-  file "open" user_path ++ this.name ++ ".folder" "onlyaccess"
-  file "get" 11
-  data = {}.insert("icn",data)
-  data.path = user_path ++ this.name
-  icons[this.name] = data
-endef
+array default_favorites = [
+  "user/desktop",
+  "user/documents",
+  "user/applications",
+  "user/downloads",
+  "user/bin"
+]
 
-def "load_drive" "this.name, this.outname"
-  file "open" "origin/" ++ this.name ++ ".folder" "onlyaccess"
-  file "get" 11
-  data = {}.insert("icn",data)
-  data.path = "origin/" ++ this.name
-  icons[this.outname] = data
-endef
+array favorites = []
 
-icons = {}
-load_favorite "Desktop"
-load_favorite "Documents"
-load_favorite "Applications"
-load_favorite "Downloads"
-load_favorite "Bin"
+if "favorites.json".saveExists() (
+  favorites = "favorites.json".saveGet()
+) else (
+  save "favorites.json" "set" default_favorites
+  favorites = default_favorites
+)
 
-load_drive "(A) System" "System"
-load_drive "(B) Local" "Local"
-load_drive "(C) Users/" ++ username username
-icons[username].icn = "image" + user_icon + "20"
+favorites.map(val -> (val.replace(".folder","").destr))
 
 mainloop:
   window_tools:load_theme
   
-  if tabs.len == 0 or tabs.istype("array").not (
+  if tabs.len == 0 or tabs.istype("array").not() (
     setup_tabs
   )
-  if mouse_down.not "can = true"
+  if mouse_down.not() "can = true"
   w = window_width
   sideshow = w > 700
   if sideshow (
@@ -461,7 +498,7 @@ mainloop:
     navigate input_path
   )
   
-  if sideshow.not (
+  if sideshow.not() (
     loc 2 2 45 -70
     square 70 25 15 1 : c#prim
   )
@@ -479,15 +516,14 @@ mainloop:
   if sideshow (
     y = -110
     folder "Favorites"
-    file_folder "Desktop" "Favorites"
-    file_folder "Downloads" "Favorites"
-    file_folder "Documents" "Favorites"
-    file_folder "Applications" "Favorites"
-    file_folder "Bin" "Favorites"
+    each fav favorites (
+      file_folder fav "Favorites"
+    )
+    
     folder "Drives"
-    file_folder "System" "Drives"
-    file_folder "Local" "Drives"
-    file_folder username "Drives"
+    file_folder "/(a) system" "Drives"
+    file_folder "/(b) local" "Drives"
+    file_folder "/(c) users/" ++ username "Drives"
   )
   loc 2 2 20 -118
   if sideshow "change 250"
@@ -603,5 +639,5 @@ mainloop:
   
   render_files
   
-  if mouse_down.not "can = true"
+  if mouse_down.not() "can = true"
   import "win-buttons"

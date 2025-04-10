@@ -10,7 +10,7 @@ def "sendslash" "content, inid, intoken"
 endef
 
 def "run_eval"
-  if out.regex("/\.[^\d ]/gm").len > 0 (
+  if out.regex("/\[^\d ]/gm").len > 0 (
     if (sent_from == owner or content.contains(".get(").not) (
       if true "out =" + (out).str
     ) else (
@@ -51,7 +51,7 @@ if discord.wsHasnew() (
       ) else (
         send = ["Only Mistium can use the terminal command"]
       )
-      sendslash send msg.d.id.str msg.d.token.str
+      sendslash send msg.d.id.toStr() msg.d.token.str
     )
   )
   if cmd == "MESSAGE_CREATE" and sent_from != bot_name (

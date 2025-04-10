@@ -15,7 +15,7 @@ colour #303030
 change_x 20
 input window_width - 290 25 "message"
 terminal "server.get_app_message"
-if app_message.str == "app_message" "app_message = null"
+if app_message.toStr() == "app_message" "app_message = null"
 sender = app_message.key("sender")
 if app_message != null and contacts.contains(sender) (
 message = sender + "-" + app_message.key("text")
@@ -53,10 +53,10 @@ loop contact-data.len (
     if clicked "current = count"
     colour #ffffff
     change_x frame_width / -2 + 20
-    text contact-data.[count].key("name") 7
+    text contact-data[count].key("name") 7
 )
 frame "clear"
 loc 2 2 240 -50
-text contact-data.[current].key("messages").join(newline) 9
+text contact-data[current].key("messages").join(newline) 9
 save "contacts.json" "set" contacts
 import "win-buttons"

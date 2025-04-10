@@ -1,5 +1,9 @@
 no_account = "https://raw.githubusercontent.com/Mistium/Origin-OS/main/Resources/no-pfp.jpeg"
 
+if window.parent.id != -1 (
+  window.close()
+)
+
 accounts = ""
 wrong = 1234567890.hashMD5()
 paged = null
@@ -14,10 +18,9 @@ network "get_my_accounts"
 
 input_shown = false
 
-def "login" "username,password"
-  status = "login"
+def "login" "username, password" (
   network "login" username password
-endef
+)
 
 status = ""
 signup_return = ""
@@ -34,18 +37,11 @@ if new_network_data (
   if network_data_command == "get_my_accounts" (
     accounts = network_data
     for count accounts.len (
-      network "getsync_asurl" accounts[count].pfp
+      network "getsync_asurl" "https://avatars.rotur.dev/" ++ accounts[count].username
       js = "`data:image/svg+xml;base64,${btoa(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><clipPath id='circleClip'><circle cx='50' cy='50' r='50' /></clipPath></defs><image href='" ++ data ++ "' x='0' y='0' height='100' width='100' clip-path='url(#circleClip)' /></svg>`)}`"
       accounts[count].pfp = js.eval
     )
     window "refresh_bg"
-  )
-  if network_data_command == "login" (
-    login_return = network_data
-    if login_return == "Successful Login" (
-      window "stop"
-    )
-    status = ""
   )
   if network_data_command == "New_Account" (
     signup_return = network_data
@@ -64,10 +60,10 @@ if status == "Waiting" or (status == "login") (
   exit
 )
 
-if accounts.isType("array").not (
+if accounts.isType("array").not() (
   goto 0 0
   square 210 40 10 : c#111
-  text "Loading Accounts" 10 : c#fff chx#-95
+  centext "Loading Accounts" 10 : c#fff chx#-95
   goto 90 0
   icon "w 3 cutcircle 0 0 10" + (timer * 20) + "70" 1 : c#fff
   exit
@@ -76,12 +72,10 @@ if accounts.isType("array").not (
 goto 0 -40
 square w h 25 1 : c#current.accent
 square w h 20 1 : c#111
-goto x * -1 70
 goto 0 0
 frame w / -2 - 5 h / 2 - 35 -10 h / -2 - 45
 image "wallpaper_blur" background_width background_height
 frame "clear"
-stretch [100,100]
 
 frame w / -2 - 5 h / 2 - 35 -10 h / -2 - 45 accounts.len * 70 - 20
 loc 999999 2 0 -40 + scroll_y
@@ -107,7 +101,6 @@ if accounts.len == 0 (
     pen "up"
     set_x frame.left + 40
     image current.pfp 50
-    // icon round_pfp 2.5 : c#050505
     text current.username 8 : c#fff chx#40
     set_x x
     change_y -70
@@ -128,7 +121,7 @@ if current_login.istype("number") (
     change_y -40
     square 320 30 20 1
     pass_name = "input_password_" ++ current_login
-    if input_shown (
+    if inputs.shown (
       goto x-25 -110
       input 250 25 "password_" ++ current_login "Password..."
     ) else (
@@ -139,27 +132,34 @@ if current_login.istype("number") (
     icon "eye" 0.7
     if clicked and can (
       can = false
-      input_shown = input_shown.not
+      inputs.shown = inputs.shown.not()
     )
-    if input_shown.not (
+    if inputs.shown.not() (
       icon "w 3 c #fff line 10 10 -10 -10" 0.7
     )
     goto x -180
     square 320 30 20 : c#000
-    if clicked or "enter".pressed (
+    if clicked or "enter".isKeyDown() (
+      check = ("https://social.rotur.dev/get_user?username=" ++ input_login_name ++ "&password=" ++ input_login_pass.hashMD5()).httpGet()
+      if check.error != null (
+        login_return = check.error
+      ) else (
+        network "login" input_login_name input_login_pass
+      )
       login user pass_name.contents()
     )
     goto x 70
     image current.pfp 140
     icon round_pfp 7 : c#111
-    goto x-150 -70
+
+    goto x - 150 -70
     text user 8 : c#fff
-    goto x-150 -180
+
+    goto x - 150 -180
     text "Login" 8
-    if status == "Login" (
-      goto x -50
-      icon "w 5 cutcircle 0 0 20" + (timer * 20) + "70" 1 : c#fff
-    )
+
+    goto x -20
+    centext login_return 9
   )
 )
 
@@ -174,7 +174,7 @@ if current_login == "add" (
 
   goto x -110
   square 320 30 20 1 : c#000
-  if input_shown (
+  if inputs.shown (
     goto x-25 -110
     input 250 25 "signup_pass" "Password..."
   ) else (
@@ -185,22 +185,22 @@ if current_login == "add" (
   icon "eye" 0.7
   if clicked and can (
     can = false
-    input_shown = input_shown.not
+    inputs.shown = inputs.shown.not()
   )
-  if input_shown.not (
+  if input_shown.not() (
     icon "w 3 c #fff line 10 10 -10 -10" 0.7
   )
 
   goto x -180 : c#000
   if signup_return != "" "c #491515"
   square 320 30 20
-  if clicked or "enter".pressed and (status == "") (
+  if clicked or "enter".isKeyDown() and status == "" (
     network "new_account" input_signup_name input_signup_pass
     status = "Waiting"
   )
-  text "Create Account" 8 : c#fff chx#-150
-  goto x - (signup_return.len * 4.5) -20
-  text signup_return 9
+  centext "Create Account" 8 : c#fff
+  goto x -20
+  centext signup_return 9
 )
 
 if current_login == "login" (
@@ -214,7 +214,7 @@ if current_login == "login" (
 
   goto x -110
   square 320 30 20 1 : c#000
-  if input_shown (
+  if inputs.shown (
     goto x-25 -110
     input 250 25 "login_pass" "Password..."
   ) else (
@@ -225,28 +225,33 @@ if current_login == "login" (
   icon "eye" 0.7
   if clicked and can (
     can = false
-    input_shown = input_shown.not
+    inputs.shown = inputs.shown.not()
   )
-  if input_shown.not (
+  if inputs.shown.not() (
     icon "w 3 c #fff line 10 10 -10 -10" 0.7
   )
 
   goto x -180
   square 320 30 20 : c#000
-  if clicked or "enter".pressed (
-    network "login" input_login_name input_login_pass
-    status = "Waiting"
+  if clicked or "enter".isKeyDown() (
+    check = ("https://social.rotur.dev/get_user?username=" ++ input_login_name ++ "&password=" ++ input_login_pass.hashMD5()).httpGet()
+    if check.error != null (
+      login_return = check.error
+    ) else (
+      network "login" input_login_name input_login_pass
+    )
   )
-  text "Login" 8 : c#fff chx#-150
-  goto x - (login_return.len * 4.5) -20
-  text login_return 9
+  centext "Login" 8 : c#fff
+
+  goto x -20
+  centext login_return 9
 )
 
-if mouse_down.not "can = true"
+if mouse_down.not() "can = true"
 
 txt = "Make A Rotur Account"
-goto x - (txt.len * 4.5) -240
-text txt 9 : c#fff
+goto x -240
+centext txt 9 : c#fff
 if clicked and can (
   window "refresh_bg"
   current_login = "Add"
@@ -254,8 +259,8 @@ if clicked and can (
 )
 
 txt = "Add A Rotur Account"
-goto x - (txt.len * 4.5) -275
-text txt 9 : c#fff
+goto x -275
+centext txt 9 : c#fff
 if clicked and can (
   window "refresh_bg"
   current_login = "Login"
